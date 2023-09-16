@@ -130,9 +130,11 @@ def predir_eth():
     market_cap_btc = data_btc['data']['ETH']['quote']['USD']['market_cap']
 
     difference = price_btc - prediction
+    accuracy = (1 - abs((price_btc - prediction) / price_btc)) * 100
+
     current_date = datetime.datetime.now()  
     
-    return render_template("public/ethereum.html", prediction=prediction, actual_price=actual_price, price_btc=price_btc, difference=difference, current_date=current_date)
+    return render_template("public/ethereum.html", prediction=prediction, actual_price=actual_price, price_btc=price_btc, difference=difference, accuracy=accuracy, current_date=current_date)
 
 
 @app.route("/prediction",methods=['POST'])
@@ -184,9 +186,11 @@ def bitcoinRF():
     market_cap_btc = data_btc['data']['BTC']['quote']['USD']['market_cap']
 
     difference = price_btc - prediction 
+    accuracy = (1 - abs((price_btc - prediction) / price_btc)) * 100
+
     current_date = datetime.datetime.now()  
     
-    return render_template("public/bitcoinRF.html",prediction=prediction,ActuelPrice=ActuelPrice,price_btc=price_btc,difference=difference,current_date=current_date)
+    return render_template("public/bitcoinRF.html",prediction=prediction,ActuelPrice=ActuelPrice,price_btc=price_btc,difference=difference, accuracy=accuracy, current_date=current_date)
 
 
 @app.route("/ETHRF")
@@ -232,9 +236,11 @@ def ETHRF():
     market_cap_btc = data_btc['data']['ETH']['quote']['USD']['market_cap']
 
     difference = price_btc - prediction 
+    accuracy = (1 - abs((price_btc - prediction) / price_btc)) * 100
+
     current_date = datetime.datetime.now()  
     
-    return render_template("public/ETHRF.html",prediction=prediction,ActuelPrice=ActuelPrice,price_btc=price_btc,difference=difference,current_date=current_date)
+    return render_template("public/ETHRF.html",prediction=prediction,ActuelPrice=ActuelPrice,price_btc=price_btc,difference=difference, accuracy=accuracy, current_date=current_date)
 
 
 
@@ -243,6 +249,55 @@ def ETHRF():
 
 @app.route("/bitcoinREGLIN")
 def bitcoinREGLIN():
+    # Charger et nettoyer les données
+    df = pd.read_csv("btc.csv")
+    df = df.dropna()
+
+    # Afficher les données visuellement
+    # plot the data from the DataFrame df on a graph, with the 'Date' column on the x-axis and the 'Close' column on the y-axis. The plt.xticks(rotation=45) rotates the x-axis labels by 45 degrees for better readability.
+    df.plot(x="Date", y="Close")
+    plt.xticks(rotation=45)
+
+    # Créer le modèle
+    # Creates an instance of the LinearRegression class, which will be used to perform linear regression.
+    model = LinearRegression()
+
+    # Entraîner le modèle
+    #split the data into features (X) and the target variable (y) for training the linear regression model.
+    X = df[['Open', 'High', 'Low', 'Volume']] #The features consist of the 'Open', 'High', 'Low', and 'Volume' columns
+    X = X[:int(len(df)-1)]
+    y = df['Close'] #the target variable is the 'Close' column.
+    y = y[:int(len(df)-1)]
+    #data is split to exclude the last row, which will be used for prediction.
+    model.fit(X, y)  # Entraînement du modèle
+
+    # Faire les prédictions
+    new_data = df[['Open', 'High', 'Low', 'Volume']].tail(1)
+    prediction = model.predict(new_data)
+    actual_price = df[['Close']].tail(1).values[0][0]
+
+    # Obtenir le prix actuel du Bitcoin via une API
+    url = 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest'
+    headers = {'X-CMC_PRO_API_KEY': "4116c941-a133-4abf-b6c4-bd6cb321b499"}
+    parameters_btc = {'symbol': 'BTC'}
+    response_btc = requests.get(url, headers=headers, params=parameters_btc)
+    data_btc = response_btc.json()
+    price_btc = data_btc['data']['BTC']['quote']['USD']['price']
+    market_cap_btc = data_btc['data']['BTC']['quote']['USD']['market_cap']
+
+    difference = price_btc - prediction
+    accuracy = (1 - abs((price_btc - prediction) / price_btc)) * 100
+
+    current_date = datetime.datetime.now()  
+    
+    return render_template("public/bitcoinREGLIN.html", prediction=prediction, actual_price=actual_price, price_btc=price_btc, difference=difference,  accuracy=accuracy, current_date=current_date)
+
+
+
+
+
+@app.route("/bitcoinREGLINcinqJ")
+def bitcoinREGLINcinqJ():
     # Charger et nettoyer les données
     df = pd.read_csv("btc.csv")
     df = df.dropna()
@@ -276,69 +331,18 @@ def bitcoinREGLIN():
     market_cap_btc = data_btc['data']['BTC']['quote']['USD']['market_cap']
 
     difference = price_btc - prediction
-    current_date = datetime.datetime.now()  
-    
-    return render_template("public/bitcoinREGLIN.html", prediction=prediction, actual_price=actual_price, price_btc=price_btc, difference=difference, current_date=current_date)
+    current_date = datetime.datetime.now()
 
-
-
-
-
-
-
-@app.route("/bitcoinREGLINcinqJ")
-def bitcoinREGLINcinqJ():
-    # Charger et nettoyer les données
-    df = pd.read_csv("btc.csv")
-    df = df.dropna()
-
-    # Afficher les données visuellement
-    df.plot(x="Date", y="Close")
-    plt.xticks(rotation=45)
-
-    # Créer le modèle
-    model = LinearRegression()
-
-    # Entraîner le modèle
-    X = df[['Open', 'High', 'Low', 'Volume']]
-    X = X[:int(len(df)-1)]
-    y = df['Close']
-    y = y[:int(len(df)-1)]
-    model.fit(X, y)  # Entraînement du modèle
-
-    # Faire les prédictions
-    new_data = df[['Open', 'High', 'Low', 'Volume']].tail(1)
-    prediction = model.predict(new_data)
-    actual_price = df[['Close']].tail(1).values[0][0]
-
-    # Faire les prédictions pour les cinq prochains jours
-    next_five_days = pd.date_range(start=df['Date'].iloc[-1], periods=6)[1:]
-    next_five_days_data = np.repeat(new_data.values, 5, axis=0)
-    next_five_days_predictions = model.predict(next_five_days_data)
-
-    # Créer un DataFrame pour stocker les dates et les prédictions
-    predictions_df = pd.DataFrame({'Date': next_five_days, 'Prediction': next_five_days_predictions})
-    
-    # Créer les données de trace pour le graphique matplotlib
-    dates = predictions_df['Date']
-    predictions = predictions_df['Prediction']
-
-    # Afficher le graphique
-    plt.figure(figsize=(10, 6))
-    plt.plot(dates, predictions, marker='o')
-    plt.title('Bitcoin Price Predictions for the Next 5 Days')
-    plt.xlabel('Date')
-    plt.ylabel('Prediction')
-    plt.xticks(rotation=45)
+    # Generate and save the graph
     plt.tight_layout()
+    plt.savefig('static/image.png')
 
-    # Sauvegarder le graphique dans un fichier
-    plt.savefig('image.png')
-    
-    return render_template("public/bitcoinREGLINcinqJ.html",predictions=predictions_df)
+    return render_template("public/bitcoinREGLINcinqJ.html", prediction=prediction, actual_price=actual_price, price_btc=price_btc, difference=difference, current_date=current_date)
 
-if __name__ == "__main__":
-    app.run()
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
 
 
 
